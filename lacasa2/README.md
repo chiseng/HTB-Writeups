@@ -270,11 +270,11 @@ Was stuck at this point for quite a bit trying to bypass the path traversal and 
 ```https://10.10.10.131/file/U0VBU09OLTEvMDEuYXZp```
 The file path is base64 encoded and if we can get encode our path to the user.txt file from one level up, we'll get the hash! True enough it works! But lets see if we can get more files from the .ssh folder which may get us a shell on the server!
 
-![lfi]('lfi.png')
+![lfi](lfi.png)
 
 We can see that there is a id_rsa file that we can use for ssh authentication. No need for passwords!
 
-![rsa]('rsa.png')
+![rsa](rsa.png)
 
 With the private key, we can try authenticating as berlin, the user that we got our private key file from. 
 ```

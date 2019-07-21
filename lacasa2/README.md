@@ -254,12 +254,12 @@ Seems like the CA key that we found might come in handy! This looks like it's ex
 
 After uploading the p12 format cert we created, a pop-up should show, prompting us to verify the cert we want to use for authentication. Following that, we are presented with the index page!
 
-![index]('index.png')
+![index](index.png)
 
 ## Path Traversal and Local File Inclusion (LFI)
 Clicking on the sesason1 link will take us to a page with .avi files that are basically just empty text files. However, we can notice that the url has ```PATH``` as a query which means it could be vulnerable to path traversal and local file inclusion attacks.
 
-![avi]('avi.png')
+![avi](avi.png)
 
 Trying to view the /etc/passwd folder yields us an error from the ```fs.readdirSync``` method which tells us that only directory scanning is allowed.
 

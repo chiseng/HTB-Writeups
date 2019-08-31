@@ -2,4 +2,4 @@
 Writeups for hackthebox machines. 
 
 ### NOTE:
-When a writeup is done before machine is retired, repo will be made private
+Writeups here are only on retired machines. Please go try boxes and ask people on forums instead of googling crawling for answers :)

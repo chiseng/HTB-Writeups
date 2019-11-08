@@ -49,14 +49,14 @@ This seems like a php hosted web application that uses a MySQL database from the
 
 Trying the default ```admin:admin``` user password combination doesn't seem to work here.
 
-![myadmin](myadmin.jpg)
+![myadmin](myadmin.JPG)
 
 Looking at the timestamps of the files in the other pages, it seems that there isn't anything hidden there that could be of use. 
 (Only showing a few because all the rest are the same)
 
-![images](images.jpg)
+![images](images.JPG)
 
-![js](js.jpg)
+![js](js.JPG)
 
 Let's go back to the index page and maybe we will find something of use there!
 
@@ -64,17 +64,17 @@ First, we take a look at the page source to see which links will direct us to le
 
 This doesn't seem too promising...
 
-![index1](index1.jpg)
+![index1](index1.JPG)
 
 There's something interesting here.
 
-![index2](index2.jpg)
+![index2](index2.JPG)
 
 Since we know that this site is written with php, the query parameters could be vulnerable to RFI/LFI attacks. Find out more about such attacks here https://www.owasp.org/index.php/Testing_for_Local_File_Inclusion
 
 Testing the sanity of the parameters yields quite interesting results
 
-![enum1](indexenum1.jpg)
+![enum1](indexenum1.JPG)
 
 It parses the result correctly and returns a null image as ```100.jpg``` is not found on the local server. Remember what we found earlier about this website being linked to a MYSQL database? We can test this vulnerability out with SQLMap and see if we can fish anything of use out!
 
@@ -156,7 +156,7 @@ $connection=new mysqli('127.0.0.1','DBadmin','imissyou','hotel');
 
 Credential reuse is a very common issue especially in things that the admin 'thinks' others would never get access to. Lets try this on the /phpmyadmin page.
 
-!(myadmin_success)[myadmin_success.jpg]
+!(myadmin_success)[myadmin_success.JPG]
 
 We managed to get in! Looking up some exploits on MySQL DBs with phpmyadmin, https://www.hackingarticles.in/shell-uploading-web-server-phpmyadmin/, we can perform remote code execution with SQL queries and get the server to return us a shell.
 

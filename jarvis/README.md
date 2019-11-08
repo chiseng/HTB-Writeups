@@ -309,7 +309,8 @@ def exec_ping():
 .
 ```
 
-Scanning through the code real quickly, we can see that the function ```exec_ping``` does a system call on the user input. We can use this to our advantage following the syntax ```$(/bin/bash)```. 
+Scanning through the code real quickly, we can see that the function ```exec_ping``` does a system call on the user input. We can use this to our advantage following the syntax ```$(/bin/bash)``` which encapsulates the bash command and feeds it to standard input into the system command. 
+#### Note: os.system takes in sys.stdin as in system in C, hence this would be the equivalent of passing a /bin/bash command in a unix command line(?).
 
 We land ourselves in a sorta "jail" where we have to do blind command line execution. We can simply launch another nc session back to another listener on our machine and get a session as the user ```pepper``` 
 
